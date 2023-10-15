@@ -1,74 +1,83 @@
+// Define the url for the GeoJSON earthquake data
+var url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson";
+
 // Create the map
 var myMap = L.map("map", {
     center: [37.09, -95.71],
     zoom: 5
 });
 
-// Adding the tile layer
+// Add a tile layer to the map
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(myMap);
 
-let link = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson"
+// Retrieve and add the earthquake data to the map
+d3.json(url).then(function (data) {
+    function mapStyle(feature) {
+        return {
+            opacity: 1,
+            fillOpacity: 1,
+            fillColor: mapColor(feature.geometry.coordinates[2]),
+            color: "black",
+            radius: mapRadius(feature.properties.mag),
+            stroke: true,
+            weight: 0.5
+        };
 
-
-// get the earthquake data from the "response" API
-d3.json(link).then(function(data) {
-    // Creating a GeoJSON layer with the retrieved data
-    L.geoJson(data).addTo(myMap);
-  });
-  
-
-
-// Function to determine marker size
-function markerSize(magnitude) {
-    return magnitude * 5000;
-  };
-
-  
-function createFeatures(earthquakeData) {
-
-    function onEachFeature(feature, layer){
-        layer.bindPopup(`<h3>Location: ${feature.properties.place} </h3><hr><p>Date: ${features.properties
-        .time}</p><p>Magnitude: ${features.properties.mag}</p><p>Depth: ${features.geometry.coordinates[2]}</p>`)
-    };
-
-function createCircleMarker(feature,latlng){
-    let options = {
-        radius:feature.properties.mag*5,
-        fillColor: chooseColor(feature.properties.mag),
-        color: chooseColor(feature.properties.mag),
-        weight: 1,
-        opacity: .8,
-        fillOpacity: 0.35
+        // Establish colors for depth
     }
-    return L.circleMarker(latlng, options);
-} 
+    function mapColor(depth) {
+        if (depth < 10) {
+          return "yellow";
+        } else if (depth < 30) {
+          return "gold";
+        } else if (depth < 50) {
+          return "orange";
+        } else if (depth < 70) {
+          return "orangered";
+        } else if (depth < 90) {
+          return "red";
+        } else {
+          return "black";
+        }
+      }
+    // Establish magnitude size
+    function mapRadius(mag) {
+        if (mag === 0) {
+            return 1;
+        }
 
-let earthquakes = L.geoJSON(earthquakeData, {
-    onEachFeature: onEachFeature,
-    pointToLayer: createCircleMarker
-  });
-  
-  // Send earthquakes layer to the createMap function
-  createMap(earthquakes);
-}
-
-
- // Create a GeoJSON layer containing the features array on the earthquakeData object
- 
-function chooseColor(depth) {
-    if (depth < 10) {
-      return "#ffffcc";
-    } else if (depth < 30) {
-      return "#a1dab4";
-    } else if (depth < 50) {
-      return "#41b6c4";
-    } else if (depth < 70) {
-      return "#2c7fb8";
-    } else if (depth < 90) {
-      return "#253494";
-    } else {
-      return "#081d58";
+        return mag * 3.5;
     }
+
+    // Add earthquake data to the map
+    L.geoJson(data, {
+
+        pointToLayer: function (feature, latlng) {
+            return L.circleMarker(latlng);
+        },
+
+        style: mapStyle,
+
+        // Activate pop-up data when circles are clicked
+        onEachFeature: function (feature, layer) {
+            layer.bindPopup("Magnitude: " + feature.properties.mag + "<br>Location: " + feature.properties.place + "<br>Depth: " + feature.geometry.coordinates[2]);
+
+        }
+    }).addTo(myMap);
+
+// Add the legend with colors to corrolate with depth
+var legend = L.control({position: "bottomright"});
+legend.onAdd = function() {
+  var div = L.DomUtil.create("div", "info legend"),
+  depth = [-10, 10, 30, 50, 70, 90];
+
+  for (var i = 0; i < depth.length; i++) {
+    div.innerHTML +=
+    '<i style="background:' + mapColor(depth[i] + 1) + '"></i> ' + depth[i] + (depth[i + 1] ? '&ndash;' + depth[i + 1] + '<br>' : '+');
   }
+  return div;
+};
+legend.addTo(myMap)
+});
